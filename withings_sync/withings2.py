@@ -13,6 +13,7 @@ HOME = os.environ.get("HOME", ".")
 AUTHORIZE_URL = "https://account.withings.com/oauth2_user/authorize2"
 TOKEN_URL = "https://wbsapi.withings.net/v2/oauth2"
 GETMEAS_URL = "https://wbsapi.withings.net/measure?action=getmeas"
+SLEEP_URL = "https://wbsapi.withings.net/v2/sleep"
 
 
 APP_CONFIG = os.environ.get(
@@ -92,7 +93,7 @@ class WithingsOAuth2:
             "response_type": "code",
             "client_id": self.app_config["client_id"],
             "state": "OK",
-            "scope": "user.metrics",
+            "scope": "user.metrics,user.activity",
             "redirect_uri": self.app_config["callback_url"],
         }
 
@@ -209,6 +210,33 @@ class WithingsAccount:
         log.info("Saving Last Sync")
         self.withings.update_config()
 
+    def get_sleep(self, startdate, enddate):
+        """
+        get Withings sleep
+
+        this endpoint only handles one day at a time, so if asking for more than 24 hours, we'll make many requests
+        """
+        log.info("Get Sleep")
+
+        params = {
+            "access_token": self.withings.user_config["access_token"],
+            # 'meastype': MEASTYPE_WEIGHT,
+            "action": "get",
+            "data_fields": "hr,rr,snoring,sdnn_1,rmssd,mvt_score",
+            "startdate": startdate,
+            "enddate": enddate,
+        }
+
+        req = requests.post(SLEEP_URL, params)
+
+        measurements = req.json()
+        print(measurements)
+
+        if measurements.get("status") == 0:
+            log.debug("Measurements received")
+            return WithingsSleep(measurements.get("body").get("series"))
+        return None
+
     def get_measurements(self, startdate, enddate):
         """get Withings measurements"""
         log.info("Get Measurements")
@@ -267,6 +295,25 @@ class WithingsAccount:
 
         return height
 
+class WithingsSleepInterval:
+
+    def __init__(self, interval):
+        self.startdate = interval.get("startdate")
+        self.enddate = interval.get("enddate")
+        self.state = interval.get("state")
+        self.hr = interval.get("hr")
+        self.rr = interval.get("rr")
+        self.snoring = interval.get("snoring")
+        self.sdnn_1 = interval.get("sdnn_1")
+        self.rmssd = interval.get("rmssd")
+
+class WithingsSleep:
+
+    def __init__(self, series):
+        self.series = series
+        self.intervals = []
+        for interval in series:
+            self.intervals.append(WithingsSleepInterval(interval))
 
 class WithingsMeasureGroup:
     """This class takes care of the group measurement functions"""

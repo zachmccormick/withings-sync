@@ -66,6 +66,7 @@ class Fit(object):
         'weight_scale': 30,
         'file_creator': 49,
         'blood_pressure': 51,
+        'sleep_level': 275,
     }
 
 
@@ -308,6 +309,50 @@ class FitEncoderWeight(FitEncoder):
         if not self.weight_scale_defined:
             header = self.record_header(definition=True, lmsg_type=self.LMSG_TYPE_WEIGHT_SCALE)
             msg_number = self.GMSG_NUMS['weight_scale']
+            fixed_content = pack('BBHB', 0, 0, msg_number, len(content))  # reserved, architecture(0: little endian)
+            self.buf.write(header + fixed_content + fields)
+            self.weight_scale_defined = True
+
+        header = self.record_header(lmsg_type=self.LMSG_TYPE_WEIGHT_SCALE)
+        self.buf.write(header + values)
+
+
+class FitEncoderSleep(FitEncoder):
+    LMSG_TYPE_WEIGHT_SCALE = 3
+
+    deep_sleep = 0.0
+    light_sleep = 1.0
+    awake = 2.0
+    more_awake = 3.0
+
+    def __init__(self):
+        super().__init__()
+        self.weight_scale_defined = False
+
+    def write_weight_scale(self, timestamp, weight, percent_fat=None, percent_hydration=None,
+                           visceral_fat_mass=None, bone_mass=None, muscle_mass=None, basal_met=None,
+                           active_met=None, physique_rating=None, metabolic_age=None,
+                           visceral_fat_rating=None, bmi=None):
+        content = [
+            (253, FitBaseType.uint32, self.timestamp(timestamp), 1),
+            (0, FitBaseType.uint16, weight, 100),
+            (1, FitBaseType.uint16, percent_fat, 100),
+            (2, FitBaseType.uint16, percent_hydration, 100),
+            (3, FitBaseType.uint16, visceral_fat_mass, 100),
+            (4, FitBaseType.uint16, bone_mass, 100),
+            (5, FitBaseType.uint16, muscle_mass, 100),
+            (7, FitBaseType.uint16, basal_met, 4),
+            (9, FitBaseType.uint16, active_met, 4),
+            (8, FitBaseType.uint8, physique_rating, 1),
+            (10, FitBaseType.uint8, metabolic_age, 1),
+            (11, FitBaseType.uint8, visceral_fat_rating, 1),
+            (13, FitBaseType.uint16, bmi, 10),
+        ]
+        fields, values = self._build_content_block(content)
+
+        if not self.weight_scale_defined:
+            header = self.record_header(definition=True, lmsg_type=self.LMSG_TYPE_WEIGHT_SCALE)
+            msg_number = self.GMSG_NUMS['sleep_level']
             fixed_content = pack('BBHB', 0, 0, msg_number, len(content))  # reserved, architecture(0: little endian)
             self.buf.write(header + fixed_content + fields)
             self.weight_scale_defined = True

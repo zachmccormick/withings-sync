@@ -510,6 +510,7 @@ def sync():
 
     height = withings.get_height()
     groups = withings.get_measurements(startdate=startdate, enddate=enddate)
+    sleep = withings.get_sleep(startdate=startdate, enddate=enddate)
 
     # Only upload if there are measurement returned
     if groups is None or len(groups) == 0:
